@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   Int              @id @default(autoincrement())
+  username             String           @unique
+  passwordHash         String
+  role                 String           @default("INVESTIGATOR") // "INVESTIGATOR" or "ADMIN"
+  createdAt            DateTime         @default(now())
+  failedLoginAttempts  Int              @default(0)   // increments on each failed login
+  lockedUntil          DateTime?                      // null = not locked; future = locked until this time
+
+  documents            Document[]
+  auditLogs            AuditLog[]
+  assignments          CaseAssignment[]
+  resetRequests        PasswordResetRequest[] @relation("RequestedBy")
+  resolvedRequests     PasswordResetRequest[] @relation("ResolvedBy")
+  generatedCertificates Certificate[]
+}
+
+model Case {
+  id          Int              @id @default(autoincrement())
+  caseNumber  String           @unique // e.g., "FIR-2026-045"
+  title       String
+  createdAt   DateTime         @default(now())
+
+  assignments CaseAssignment[]
+  documents   Document[]
+}
+
+model CaseAssignment {
+  id         Int      @id @default(autoincrement())
+  caseId     Int
+  userId     Int
+  assignedAt DateTime @default(now())
+
+  case       Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+}
+
+model Document {
+  id                   Int          @id @default(autoincrement())
+  caseId               Int
+  filename             String       // stored filename on disk
+  originalName         String       // original upload filename
+  fileHash             String       // SHA-256 hash of raw file contents
+  chainHash            String       // SHA-256 hash of (fileHash + previousHash) within this case
+  previousHash         String?      // Genesis hash or previous document's chainHash in this case
+  extractedText        String?      // OCR extracted text
+  evidenceType         String       @default("SECONDARY") // "PRIMARY" | "SECONDARY"
+  certificateGenerated Boolean      @default(false)
+  uploaderId           Int
+  uploadedAt           DateTime     @default(now())
+
+  case                 Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  uploader             User         @relation(fields: [uploaderId], references: [id])
+  certificate          Certificate?
+  auditLogs            AuditLog[]
+}
+
+model Certificate {
+  id                      Int      @id @default(autoincrement())
+  documentId              Int      @unique
+  deviceDescription       String
+  deviceOperator          String
+  recordDescription       String
+  fileHashAtCertification String
+  declarationText         String
+  signatory1Name          String
+  signatory1Designation   String
+  signatory1SignedAt      DateTime
+  signatory2Name          String
+  signatory2Designation   String
+  signatory2SignedAt      DateTime
+  generatedAt             DateTime @default(now())
+  generatedById           Int
+
+  document                Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  generatedBy             User     @relation(fields: [generatedById], references: [id])
+}
+
+model PasswordResetRequest {
+  id                Int       @id @default(autoincrement())
+  userId            Int
+  status            String    @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  requestedAt       DateTime  @default(now())
+  resolvedAt        DateTime?
+  resolvedById      Int?
+  temporaryPassword String?   // plaintext stored ONLY for prototype demo — admin relays manually
+
+  user              User      @relation("RequestedBy", fields: [userId], references: [id], onDelete: Cascade)
+  resolvedBy        User?     @relation("ResolvedBy", fields: [resolvedById], references: [id])
+}
+
+model AuditLog {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  action     String    // "UPLOAD"|"DUPLICATE_UPLOAD"|"TAMPERED_UPLOAD_ATTEMPT"|"VERIFY_OK"|"TAMPERED"|"NOT_FOUND"|"LOGIN_SUCCESS"|"LOGIN_FAILED"|"ACCOUNT_LOCKED"|"PASSWORD_RESET_REQUESTED"|"PASSWORD_RESET_APPROVED"|"PASSWORD_RESET_REJECTED"|"CERTIFICATE_GENERATED"
+  documentId Int?
+  result     String?   // extra context string
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id])
+  document   Document? @relation(fields: [documentId], references: [id])
+}

@@ -8,6 +8,7 @@ import axios from 'axios';
 import FormData = require('form-data');
 
 const GENESIS_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8001';
 
 export type ComparisonResult = 'NEW' | 'DUPLICATE' | 'TAMPERED' | 'NOT_FOUND';
 
@@ -323,4 +324,25 @@ export class DocumentsService {
 
     return result;
   }
+  async askQuestion(caseId: number, question: string, userId: number, role: string) {
+  await this.casesService.validateCaseAccess(caseId, userId, role);
+
+  const res = await fetch(`${AI_SERVICE_URL}/query`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, case_id: String(caseId) }),
+  });
+
+  const result = await res.json();
+
+  await this.prisma.auditLog.create({
+    data: {
+      userId,
+      action: 'AI_QUERY',
+      result: `Asked: "${question}" on Case #${caseId}`,
+    },
+  });
+
+  return result;
+}
 }

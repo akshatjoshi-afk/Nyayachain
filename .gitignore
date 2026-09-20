@@ -80,3 +80,9 @@ desktop.ini
 *.tmp
 *.temp
 *.cache
+# AI Service
+ai-service/venv/
+ai-service/.venv/
+ai-service/__pycache__/
+ai-service/**/*.pyc
+ai-service/qdrant_data/

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AskAiPanel from '../components/AskAiPanel';
 
 interface Certificate {
   id: number;
@@ -525,6 +526,9 @@ function DocumentsPage() {
           )}
         </div>
       </div>
+      
+      {/* AI Query Panel */}
+{caseDetails && <AskAiPanel caseId={String(caseDetails.id)} />}
 
       {/* Documents Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

@@ -71,4 +71,18 @@ export class DocumentsController {
     const caseId = parseInt(caseIdStr, 10);
     return this.documentsService.verifyDocument(file, caseId, req.user.id, req.user.role);
   }
+  @Post('ask')
+async askQuestion(
+  @Body('caseId') caseIdStr: string,
+  @Body('question') question: string,
+  @Request() req: any,
+) {
+  const caseId = parseInt(caseIdStr, 10);
+  return this.documentsService.askQuestion(
+    caseId,
+    question,
+    req.user.id,
+    req.user.role,
+  );
+}
 }

@@ -60,6 +60,7 @@ model Document {
   extractedText        String?      // OCR extracted text
   evidenceType         String       @default("SECONDARY") // "PRIMARY" | "SECONDARY"
   certificateGenerated Boolean      @default(false)
+  blockchainTxHash     String?      // tx hash from on-chain anchor, null if anchoring failed/skipped
   uploaderId           Int
   uploadedAt           DateTime     @default(now())
 

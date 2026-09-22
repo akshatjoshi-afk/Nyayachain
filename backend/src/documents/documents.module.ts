@@ -3,11 +3,13 @@ import { MulterModule } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
 import { DocumentsController } from './documents.controller';
 import { CasesModule } from '../cases/cases.module';
+import { BlockchainModule } from '../blockchain/blockchain.module';
 import { memoryStorage } from 'multer';
 
 @Module({
   imports: [
     CasesModule,
+    BlockchainModule,
     MulterModule.register({
       storage: memoryStorage(),
       limits: {

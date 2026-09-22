@@ -8,6 +8,7 @@ import {
   Request,
   Query,
   Body,
+  Param,
   ParseIntPipe,
   BadRequestException,
 } from '@nestjs/common';
@@ -85,4 +86,9 @@ async askQuestion(
     req.user.role,
   );
 }
+  @Get('cases/:caseId/verify-blockchain')
++  async verifyBlockchain(@Param('caseId') caseIdStr: string, @Request() req: any) {
++    const caseId = parseInt(caseIdStr, 10);
++    return this.documentsService.verifyAgainstBlockchain(caseId, req.user.id, req.user.role);
++  }
 }

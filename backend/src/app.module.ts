@@ -7,6 +7,7 @@ import { CasesModule } from './cases/cases.module';
 import { DocumentsModule } from './documents/documents.module';
 import { AuditModule } from './audit/audit.module';
 import { CertificateModule } from './certificate/certificate.module';
+import { BlockchainModule } from './blockchain/blockchain.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CertificateModule } from './certificate/certificate.module';
     DocumentsModule,
     AuditModule,
     CertificateModule,
+    BlockchainModule,
   ],
   providers: [
     {

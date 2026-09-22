@@ -45,6 +45,14 @@ interface CaseDetails {
   title: string;
 }
 
+interface BlockchainVerificationResult {
+  status: 'verified' | 'mismatch' | 'no_documents';
+  match: boolean;
+  dbChainHash: string;
+  onChainHash: string;
+  message: string;
+}
+
 interface UploadOrVerifyResult {
   status: 'new' | 'duplicate' | 'tampered' | 'verified' | 'not_found';
   accepted?: boolean;
@@ -99,6 +107,36 @@ function DocumentsPage() {
   });
   const [submittingCert, setSubmittingCert] = useState(false);
   const [certError, setCertError] = useState<string | null>(null);
+
+  // Blockchain Verification State
+  const [verifyingBlockchain, setVerifyingBlockchain] = useState(false);
+  const [blockchainResult, setBlockchainResult] =
+  useState<BlockchainVerificationResult | null>(null);
+  const [blockchainError, setBlockchainError] = useState<string | null>(null);
+
+  const handleVerifyBlockchain = async () => {
+  if (!caseId) return;
+
+  setVerifyingBlockchain(true);
+  setBlockchainResult(null);
+  setBlockchainError(null);
+
+  try {
+    const res = await axios.get<BlockchainVerificationResult>(
+      `/api/documents/cases/${caseId}/verify-blockchain`
+    );
+
+    setBlockchainResult(res.data);
+  } catch (err: any) {
+    setBlockchainError(
+      err.response?.data?.message ||
+      err.message ||
+      'Failed to verify blockchain ledger. Please check network connection or try again.'
+    );
+  } finally {
+    setVerifyingBlockchain(false);
+  }
+};
 
   useEffect(() => {
     if (!caseId) return;
@@ -360,29 +398,196 @@ function DocumentsPage() {
           </div>
 
           <div className="flex items-center gap-2 pt-2 sm:pt-0 sm:border-l sm:border-gray-300 sm:pl-3">
-            <input type="file" ref={verifyInputRef} onChange={handleVerify} className="hidden" />
-            <button
-              onClick={() => verifyInputRef.current?.click()}
-              disabled={verifying}
-              className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-gray-50 font-medium transition-colors text-xs flex items-center gap-1.5"
-            >
-              {verifying ? 'Verifying...' : 'Verify File'}
-            </button>
 
-            <input type="file" ref={uploadInputRef} onChange={handleUpload} className="hidden" />
-            <button
-              onClick={() => uploadInputRef.current?.click()}
-              disabled={uploading}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-              </svg>
-              {uploading ? 'Uploading...' : 'Upload Document'}
-            </button>
+  {/* Blockchain Verification */}
+  <button
+    onClick={handleVerifyBlockchain}
+    disabled={verifyingBlockchain}
+    className="px-3 py-1.5 bg-purple-50 border border-purple-200 text-purple-800 rounded-lg shadow-sm hover:bg-purple-100 font-semibold transition-colors text-xs flex items-center gap-1.5 disabled:opacity-50"
+  >
+    <svg
+      className="w-4 h-4 text-purple-600"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+      />
+    </svg>
+
+    {verifyingBlockchain
+      ? 'Verifying Chain...'
+      : 'Verify Blockchain'}
+  </button>
+
+  {/* Verify File */}
+  <input
+    type="file"
+    ref={verifyInputRef}
+    onChange={handleVerify}
+    className="hidden"
+  />
+
+  <button
+    onClick={() => verifyInputRef.current?.click()}
+    disabled={verifying}
+    className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-gray-50 font-medium transition-colors text-xs flex items-center gap-1.5"
+  >
+    {verifying ? 'Verifying...' : 'Verify File'}
+  </button>
+
+  {/* Upload Document */}
+  <input
+    type="file"
+    ref={uploadInputRef}
+    onChange={handleUpload}
+    className="hidden"
+  />
+
+  <button
+    onClick={() => uploadInputRef.current?.click()}
+    disabled={uploading}
+    className="px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors"
+  >
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+      />
+    </svg>
+
+    {uploading ? 'Uploading...' : 'Upload Document'}
+  </button>
+
           </div>
         </div>
       </div>
+
+{/* Blockchain Verification Result Banner */}
+{blockchainResult && (
+  <div
+    className={`p-5 rounded-xl border shadow-sm transition-all ${
+      blockchainResult.match
+        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+        : blockchainResult.status === 'no_documents'
+        ? 'bg-gray-100 border-gray-300 text-gray-800'
+        : 'bg-rose-50 border-rose-200 text-rose-900'
+    }`}
+  >
+    <div className="flex items-start justify-between">
+      <div className="flex items-start gap-3">
+
+        <div
+          className={`p-2 rounded-full mt-0.5 ${
+            blockchainResult.match
+              ? 'bg-emerald-100 text-emerald-700'
+              : blockchainResult.status === 'no_documents'
+              ? 'bg-gray-200 text-gray-700'
+              : 'bg-rose-100 text-rose-700'
+          }`}
+        >
+          {blockchainResult.match ? (
+            <span>✓</span>
+          ) : blockchainResult.status === 'no_documents' ? (
+            <span>ℹ</span>
+          ) : (
+            <span>⚠</span>
+          )}
+        </div>
+
+        <div>
+          <h3 className="text-lg font-bold">
+            {blockchainResult.match
+              ? '✅ Blockchain Ledger Verified'
+              : blockchainResult.status === 'no_documents'
+              ? 'ℹ️ No Case Documents'
+              : '⚠️ Blockchain Chain Mismatch Detected!'}
+          </h3>
+
+          <p className="text-sm mt-0.5 font-medium opacity-90">
+            {blockchainResult.message}
+          </p>
+
+          {blockchainResult.status !== 'no_documents' && (
+            <div className="mt-3 pt-3 border-t border-gray-200/60 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+
+              <div className="bg-white/80 p-2.5 rounded border border-gray-200">
+                <span className="text-gray-500 font-sans font-semibold block text-[11px] mb-0.5">
+                  Database Latest Chain Hash:
+                </span>
+
+                <span className="text-gray-800 break-all">
+                  {formatHashTruncated(blockchainResult.dbChainHash)}
+                </span>
+
+                <span className="text-[10px] text-gray-400 block break-all font-mono mt-0.5">
+                  {blockchainResult.dbChainHash}
+                </span>
+              </div>
+
+              <div className="bg-white/80 p-2.5 rounded border border-gray-200">
+                <span className="text-gray-500 font-sans font-semibold block text-[11px] mb-0.5">
+                  On-Chain Registered Hash:
+                </span>
+
+                <span className="text-gray-800 break-all">
+                  {formatHashTruncated(blockchainResult.onChainHash)}
+                </span>
+
+                <span className="text-[10px] text-gray-400 block break-all font-mono mt-0.5">
+                  {blockchainResult.onChainHash}
+                </span>
+              </div>
+
+            </div>
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={() => setBlockchainResult(null)}
+        className="text-gray-400 hover:text-gray-700 p-1"
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+)}
+
+{/* Blockchain Verification Error */}
+{blockchainError && (
+  <div className="p-5 rounded-xl border border-rose-200 bg-rose-50 text-rose-900 shadow-sm flex items-start justify-between">
+
+    <div>
+      <h3 className="text-lg font-bold">
+        Blockchain Verification Error
+      </h3>
+
+      <p className="text-sm mt-0.5 font-medium">
+        {blockchainError}
+      </p>
+    </div>
+
+    <button
+      onClick={() => setBlockchainError(null)}
+      className="text-gray-400 hover:text-gray-700 p-1"
+    >
+      ✕
+    </button>
+
+  </div>
+)} 
 
       {/* Upload & Verify Response Banners */}
       {actionResult && (

@@ -2,6 +2,7 @@ import { Injectable, ForbiddenException, BadRequestException, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { CasesService } from '../cases/cases.service';
 import * as crypto from 'crypto';
+import { BlockchainService } from '../blockchain/blockchain.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import axios from 'axios';
@@ -17,6 +18,7 @@ export class DocumentsService {
   constructor(
     private prisma: PrismaService,
     private casesService: CasesService,
+    private blockchainService: BlockchainService,
   ) {}
 
   private hashStringOrBuffer(data: Buffer | string): string {
@@ -177,6 +179,15 @@ export class DocumentsService {
         uploaderId: userId,
       },
     });
+    // Anchor this case's latest chainHash on-chain — non-blocking, fails gracefully
+     const blockchainTxHash = await this.blockchainService.anchorCaseHash(String(caseId), chainHash);
+     if (blockchainTxHash) {
+       await this.prisma.document.update({
+         where: { id: document.id },
+         data: { blockchainTxHash },
+       });
+       document.blockchainTxHash = blockchainTxHash;
+     }
 
     await this.prisma.auditLog.create({
       data: {
@@ -345,4 +356,30 @@ export class DocumentsService {
 
   return result;
 }
+  async verifyAgainstBlockchain(caseId: number, userId: number, role: string) {
+    await this.casesService.validateCaseAccess(caseId, userId, role);
+
+    const latestDoc = await this.prisma.document.findFirst({
+      where: { caseId },
+      orderBy: { id: 'desc' },
+    });
+
+    if (!latestDoc) {
+      return { status: 'no_documents', message: `No documents found in Case #${caseId} to verify.` };
+    }
+
+    const dbChainHash = latestDoc.chainHash;
+    const onChainHash = await this.blockchainService.getOnChainAnchor(String(caseId));
+    const match = dbChainHash === onChainHash;
+
+    return {
+      status: match ? 'verified' : 'mismatch',
+      match,
+      dbChainHash,
+      onChainHash,
+      message: match
+        ? '✅ Database hash-chain matches the blockchain anchor — no tampering detected.'
+        : '⚠️ Mismatch detected! The database record does not match the blockchain anchor.',
+    };
+  }
 }

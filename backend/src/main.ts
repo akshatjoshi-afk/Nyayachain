@@ -9,9 +9,11 @@ dotenv.config();
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS so the React frontend (port 5173) can call the backend (port 3001)
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+  // Enable CORS so the React frontend can call the backend
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    origin: process.env.FRONTEND_URL ? [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000'] : ['http://localhost:5173', 'http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -23,8 +25,8 @@ async function bootstrap() {
   const port = process.env.PORT || 3001;
   await app.listen(port);
 
-  console.log(`\n🏛️  NyayaChain Backend running on: http://localhost:${port}`);
-  console.log(`📡  API prefix: http://localhost:${port}/api`);
+  console.log(`\n🏛️  NyayaChain Backend running on port: ${port}`);
+  console.log(`📡  API prefix: /api`);
   console.log(`\n  Endpoints:`);
   console.log(`    POST   /api/auth/login`);
   console.log(`    POST   /api/documents/upload   [JWT required]`);

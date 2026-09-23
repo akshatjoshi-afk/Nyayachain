@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "NyayaChain secure document management backend",
   "scripts": {
-    "start": "ts-node src/main.ts",
+    "start": "node dist/main.js",
     "start:dev": "nodemon --watch src --ignore uploads --ignore dev.db --ignore dev.db-journal --ext ts --exec ts-node src/main.ts",
     "build": "tsc -p tsconfig.json",
     "db:migrate": "npx prisma migrate dev --name init",

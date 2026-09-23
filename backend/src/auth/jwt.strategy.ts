@@ -16,7 +16,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ExtractJwt.fromUrlQueryParameter('token'),
       ]),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'nyayachain-super-secret-jwt-key-2024',
+      secretOrKey: process.env.JWT_SECRET!,
     });
   }
 

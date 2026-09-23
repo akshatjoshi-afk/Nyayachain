@@ -26,14 +26,15 @@ export class DocumentsService {
   }
 
   /**
-   * Helper method to call external Python FastAPI OCR service at http://localhost:8000/extract-text
+   * Helper method to call external Python FastAPI OCR service
    */
   private async extractTextViaOCR(filePath: string): Promise<string> {
     try {
       const formData = new FormData();
       formData.append('file', fs.createReadStream(filePath));
 
-      const response = await axios.post('http://localhost:8000/extract-text', formData, {
+      const ocrBaseUrl = process.env.OCR_SERVICE_URL || 'http://localhost:8000';
+      const response = await axios.post(`${ocrBaseUrl}/extract-text`, formData, {
         headers: formData.getHeaders(),
         timeout: 180000,
       });

@@ -86,3 +86,5 @@ ai-service/.venv/
 ai-service/__pycache__/
 ai-service/**/*.pyc
 ai-service/qdrant_data/
+backend/.env.example
+backend/.env.example

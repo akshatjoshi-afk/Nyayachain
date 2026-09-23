@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AskAiPanel from '../components/AskAiPanel';
+import DocumentTextPanel from '../components/DocumentTextPanel';
 
 interface Certificate {
   id: number;
@@ -74,7 +75,8 @@ interface UploadOrVerifyResult {
 
 function DocumentsPage() {
   const { caseId } = useParams<{ caseId: string }>();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const authToken = token || sessionStorage.getItem('token') || '';
   const isAdmin = user?.role === 'ADMIN';
 
   const [caseDetails, setCaseDetails] = useState<CaseDetails | null>(null);
@@ -113,6 +115,15 @@ function DocumentsPage() {
   const [blockchainResult, setBlockchainResult] =
   useState<BlockchainVerificationResult | null>(null);
   const [blockchainError, setBlockchainError] = useState<string | null>(null);
+
+  // Document Text Slide-Out Panel State
+  const [textPanelDoc, setTextPanelDoc] = useState<{ id: number; originalName: string } | null>(null);
+  const [isTextPanelOpen, setIsTextPanelOpen] = useState(false);
+
+  const openTextPanel = (doc: Document) => {
+    setTextPanelDoc({ id: doc.id, originalName: doc.originalName });
+    setIsTextPanelOpen(true);
+  };
 
   const handleVerifyBlockchain = async () => {
   if (!caseId) return;
@@ -268,14 +279,15 @@ function DocumentsPage() {
       setSelectedDocForCert(null);
       fetchDocuments(searchQuery);
     } catch (err: any) {
-      setCertError(err.response?.data?.message || 'Failed to generate Section 63(4) Certificate.');
+      const msg = err.response?.data?.message;
+      setCertError(Array.isArray(msg) ? msg.join(', ') : (msg || 'Failed to generate Section 63(4) Certificate.'));
     } finally {
       setSubmittingCert(false);
     }
   };
 
   const handleDownloadPdf = (docId: number, originalName: string) => {
-    const pdfUrl = `/api/documents/${docId}/certificate/pdf`;
+    const pdfUrl = `/api/documents/${docId}/certificate/pdf?token=${encodeURIComponent(authToken)}`;
     const link = document.createElement('a');
     link.href = pdfUrl;
     link.download = `Section_63_4_Certificate_${originalName}.pdf`;
@@ -785,15 +797,23 @@ function DocumentsPage() {
                   return (
                     <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
-                        <div className="flex items-start">
-                          <svg className="w-5 h-5 text-gray-400 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <a
+                          href={`/api/documents/${doc.id}/file?token=${encodeURIComponent(authToken)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-start group hover:no-underline"
+                          title={`Click to view/download ${doc.originalName}`}
+                        >
+                          <svg className="w-5 h-5 text-blue-600 group-hover:text-blue-800 mr-3 mt-0.5 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                           </svg>
                           <div>
-                            <span className="font-medium text-gray-900 block">{doc.originalName}</span>
+                            <span className="font-medium text-blue-600 group-hover:text-blue-800 group-hover:underline block transition-colors">
+                              {doc.originalName}
+                            </span>
                             {snippet}
                           </div>
-                        </div>
+                        </a>
                       </td>
 
                       {/* Evidence Type Badge */}
@@ -840,22 +860,24 @@ function DocumentsPage() {
                         )}
                       </td>
 
-                      {/* OCR Status Badge */}
+                      {/* OCR Status Badge & View Text Trigger */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         {doc.extractedText ? (
-                          <span
-                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200"
-                            title="OCR text extracted & searchable"
+                          <button
+                            onClick={() => openTextPanel(doc)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200 transition-colors cursor-pointer"
+                            title="Click to view & search extracted OCR text"
                           >
                             <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
-                            Searchable
-                          </span>
+                            View Text
+                          </button>
                         ) : (
                           <span
-                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200"
-                            title="No OCR text available for search"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-75"
+                            title="No OCR text available for this document"
                           >
                             <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
@@ -1060,6 +1082,17 @@ function DocumentsPage() {
           </div>
         </div>
       )}
+
+      {/* Slide-Out OCR Text Panel */}
+      <DocumentTextPanel
+        isOpen={isTextPanelOpen}
+        onClose={() => {
+          setIsTextPanelOpen(false);
+          setTextPanelDoc(null);
+        }}
+        documentId={textPanelDoc?.id || null}
+        documentName={textPanelDoc?.originalName || null}
+      />
     </div>
   );
 }

@@ -11,7 +11,9 @@ import {
   Param,
   ParseIntPipe,
   BadRequestException,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { SkipThrottle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -22,6 +24,32 @@ import { DocumentsService } from './documents.service';
 @UseGuards(JwtAuthGuard)
 export class DocumentsController {
   constructor(private documentsService: DocumentsService) {}
+
+  @Get(':id/file')
+  async getDocumentFile(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+    @Res() res: Response,
+  ) {
+    const { stream, originalName, mimeType } = await this.documentsService.getDocumentFile(
+      id,
+      req.user.id,
+      req.user.role,
+    );
+    res.set({
+      'Content-Type': mimeType,
+      'Content-Disposition': `inline; filename="${encodeURIComponent(originalName)}"`,
+    });
+    stream.pipe(res);
+  }
+
+  @Get(':id/text')
+  async getDocumentText(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    return this.documentsService.getDocumentText(id, req.user.id, req.user.role);
+  }
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
@@ -87,8 +115,8 @@ async askQuestion(
   );
 }
   @Get('cases/:caseId/verify-blockchain')
-+  async verifyBlockchain(@Param('caseId') caseIdStr: string, @Request() req: any) {
-+    const caseId = parseInt(caseIdStr, 10);
-+    return this.documentsService.verifyAgainstBlockchain(caseId, req.user.id, req.user.role);
-+  }
+   async verifyBlockchain(@Param('caseId') caseIdStr: string, @Request() req: any) {
+     const caseId = parseInt(caseIdStr, 10);
+     return this.documentsService.verifyAgainstBlockchain(caseId, req.user.id, req.user.role);
+   }
 }

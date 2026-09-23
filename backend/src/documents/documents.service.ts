@@ -35,7 +35,7 @@ export class DocumentsService {
 
       const response = await axios.post('http://localhost:8000/extract-text', formData, {
         headers: formData.getHeaders(),
-        timeout: 120000,
+        timeout: 180000,
       });
 
       return response.data?.text || '';
@@ -380,6 +380,89 @@ export class DocumentsService {
       message: match
         ? '✅ Database hash-chain matches the blockchain anchor — no tampering detected.'
         : '⚠️ Mismatch detected! The database record does not match the blockchain anchor.',
+    };
+  }
+
+  /**
+   * GET /documents/:id/file
+   * Streams the document file from disk after verifying case access and logs audit entry.
+   */
+  async getDocumentFile(id: number, userId: number, role: string) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id },
+    });
+
+    if (!doc) {
+      throw new NotFoundException(`Document #${id} not found.`);
+    }
+
+    // Security access check
+    await this.casesService.validateCaseAccess(doc.caseId, userId, role);
+
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const filePath = path.join(uploadsDir, doc.filename);
+
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException(`File content for "${doc.originalName}" not found on server storage.`);
+    }
+
+    // Write Audit Log entry for document file access
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'VIEW_DOCUMENT',
+        documentId: doc.id,
+        result: `Accessed file "${doc.originalName}" in Case #${doc.caseId}`,
+      },
+    });
+
+    const mimeType = this.getMimeType(doc.originalName);
+    const stream = fs.createReadStream(filePath);
+
+    return { stream, originalName: doc.originalName, mimeType };
+  }
+
+  private getMimeType(filename: string): string {
+    const ext = path.extname(filename).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.pdf': 'application/pdf',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
+      '.txt': 'text/plain',
+      '.html': 'text/html',
+      '.json': 'application/json',
+      '.csv': 'text/csv',
+      '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
+    return mimeMap[ext] || 'application/octet-stream';
+  }
+
+  /**
+   * GET /documents/:id/text
+   * Returns extracted OCR text for a document after verifying case access.
+   */
+  async getDocumentText(id: number, userId: number, role: string) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id },
+      select: { id: true, caseId: true, originalName: true, extractedText: true },
+    });
+
+    if (!doc) {
+      throw new NotFoundException(`Document #${id} not found.`);
+    }
+
+    // Security access check
+    await this.casesService.validateCaseAccess(doc.caseId, userId, role);
+
+    return {
+      id: doc.id,
+      originalName: doc.originalName,
+      extractedText: doc.extractedText || null,
     };
   }
 }

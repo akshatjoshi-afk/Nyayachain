@@ -9,13 +9,25 @@ const CONTRACT_ABI = [
 @Injectable()
 export class BlockchainService {
   private readonly logger = new Logger(BlockchainService.name);
-  private provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL);
-  private wallet = new ethers.Wallet(process.env.HARDHAT_PRIVATE_KEY!, this.provider);
-  private contract = new ethers.Contract(
-    process.env.BLOCKCHAIN_CONTRACT_ADDRESS!,
-    CONTRACT_ABI,
-    this.wallet,
-  );
+  private provider: ethers.JsonRpcProvider;
+  private wallet: ethers.Wallet;
+  private contract: ethers.Contract;
+
+  constructor() {
+    console.log('DEBUG RPC_URL:', JSON.stringify(process.env.BLOCKCHAIN_RPC_URL));
+    console.log('DEBUG PRIVATE_KEY:', JSON.stringify(process.env.HARDHAT_PRIVATE_KEY));
+    console.log('DEBUG PRIVATE_KEY LENGTH:', process.env.HARDHAT_PRIVATE_KEY?.length);
+    console.log('DEBUG CONTRACT_ADDRESS:', JSON.stringify(process.env.BLOCKCHAIN_CONTRACT_ADDRESS));
+    console.log('DEBUG CONTRACT_ADDRESS LENGTH:', process.env.BLOCKCHAIN_CONTRACT_ADDRESS?.length);
+
+    this.provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL);
+    this.wallet = new ethers.Wallet(process.env.HARDHAT_PRIVATE_KEY!, this.provider);
+    this.contract = new ethers.Contract(
+      process.env.BLOCKCHAIN_CONTRACT_ADDRESS!,
+      CONTRACT_ABI,
+      this.wallet,
+    );
+  }
 
   async anchorCaseHash(caseId: string, chainHash: string): Promise<string | null> {
     try {

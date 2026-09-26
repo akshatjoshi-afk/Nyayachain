@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -100,7 +100,6 @@ model PasswordResetRequest {
   requestedAt       DateTime  @default(now())
   resolvedAt        DateTime?
   resolvedById      Int?
-  temporaryPassword String?   // plaintext stored ONLY for prototype demo — admin relays manually
 
   user              User      @relation("RequestedBy", fields: [userId], references: [id], onDelete: Cascade)
   resolvedBy        User?     @relation("ResolvedBy", fields: [resolvedById], references: [id])

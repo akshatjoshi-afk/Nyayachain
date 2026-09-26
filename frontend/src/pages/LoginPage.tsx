@@ -61,18 +61,10 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await axios.post(
-        'https://nyayachain-1.onrender.com/api/auth/login',
-        {
-          username: cleanUsername,
-          password,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
+      const res = await axios.post('/api/auth/login', {
+        username: cleanUsername,
+        password,
+      });
 
       login(res.data.access_token, res.data.user);
       navigate('/cases');

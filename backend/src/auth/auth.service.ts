@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
@@ -276,7 +276,6 @@ export class AuthService {
         status: 'APPROVED',
         resolvedAt: new Date(),
         resolvedById: adminId,
-        temporaryPassword: tempPassword, // plaintext — prototype only
       },
     });
 
@@ -328,4 +327,58 @@ export class AuthService {
 
     return { message: `Reset request for ${req.user.username} rejected.` };
   }
+
+  /**
+   * POST /auth/change-password (Authenticated User)
+   * Allows logged-in user to safely change their password by validating current password.
+   */
+  async changePassword(userId: number, currentPassword: string, newPassword: string) {
+    if (!currentPassword || !newPassword) {
+      throw new BadRequestException('Both current password and new password are required.');
+    }
+
+    if (newPassword.length < 8) {
+      throw new BadRequestException('New password must be at least 8 characters long.');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found.');
+    }
+
+    const isCurrentValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isCurrentValid) {
+      throw new UnauthorizedException('Current password is incorrect.');
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+    if (isSamePassword) {
+      throw new BadRequestException('New password cannot be the same as the current password.');
+    }
+
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: newPasswordHash,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'PASSWORD_CHANGE',
+        result: `User "${user.username}" successfully changed their password.`,
+      },
+    });
+
+    return { message: 'Password changed successfully.' };
+  }
 }
+

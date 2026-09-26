@@ -27,6 +27,11 @@ class ForgotPasswordDto {
   username: string;
 }
 
+class ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}
+
 /**
  * AuthController — login, user-list, and password-reset-request flow.
  *
@@ -120,4 +125,21 @@ export class AuthController {
       throw new BadRequestException(err.message);
     }
   }
+
+  // ─── Authenticated User ───────────────────────────────────────────────────
+
+  @Post('change-password')
+  @SkipThrottle()
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @Body() body: ChangePasswordDto,
+    @Request() req: any,
+  ) {
+    return this.authService.changePassword(
+      req.user.id,
+      body.currentPassword,
+      body.newPassword,
+    );
+  }
 }
+

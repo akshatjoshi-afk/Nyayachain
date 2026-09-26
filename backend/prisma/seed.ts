@@ -6,8 +6,11 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database with users, cases, and assignments...');
 
-  const investigatorHash = await bcrypt.hash('password123', 10);
-  const adminHash = await bcrypt.hash('adminpass', 10);
+  const investigatorPass = process.env.SEED_INVESTIGATOR_PASSWORD || 'password123';
+  const adminPass = process.env.SEED_ADMIN_PASSWORD || 'adminpass';
+
+  const investigatorHash = await bcrypt.hash(investigatorPass, 10);
+  const adminHash = await bcrypt.hash(adminPass, 10);
 
   // 1. Seed Users
   const investigator = await prisma.user.upsert({

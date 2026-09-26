@@ -163,4 +163,77 @@ export class CasesService {
 
     return true;
   }
+
+  /**
+   * GET /cases/:id/graph
+   * Returns graph nodes (Entities) and edges (Relationships) formatted for ReactFlow.
+   */
+  async getCaseGraph(caseId: number, userId: number, role: string) {
+    await this.validateCaseAccess(caseId, userId, role);
+
+    const entities = await this.prisma.entity.findMany({
+      where: { caseId },
+    });
+
+    const relationships = await this.prisma.relationship.findMany({
+      where: { caseId },
+    });
+
+    const nodes = entities.map((e) => ({
+      id: String(e.id),
+      data: {
+        label: e.name,
+        type: e.type,
+        date: e.date ? e.date.toISOString() : null,
+      },
+      position: { x: 0, y: 0 },
+    }));
+
+    const edges = relationships.map((r) => ({
+      id: String(r.id),
+      source: String(r.sourceEntityId),
+      target: String(r.targetEntityId),
+      label: r.relationshipType,
+      sourceDocument: r.sourceDocument,
+    }));
+
+    return { nodes, edges };
+  }
+
+  /**
+   * GET /cases/:id/timeline
+   * Returns all EVENT entities for this case ordered by date ascending.
+   */
+  async getCaseTimeline(caseId: number, userId: number, role: string) {
+    await this.validateCaseAccess(caseId, userId, role);
+
+    const events = await this.prisma.entity.findMany({
+      where: {
+        caseId,
+        type: 'EVENT',
+      },
+      include: {
+        sourceRelationships: true,
+        targetRelationships: true,
+      },
+      orderBy: {
+        date: 'asc',
+      },
+    });
+
+    return events.map((event) => {
+      const sourceDoc =
+        event.sourceRelationships[0]?.sourceDocument ||
+        event.targetRelationships[0]?.sourceDocument ||
+        'Case Evidence';
+
+      return {
+        id: event.id,
+        name: event.name,
+        type: event.type,
+        date: event.date ? event.date.toISOString() : null,
+        sourceDocument: sourceDoc,
+      };
+    });
+  }
 }

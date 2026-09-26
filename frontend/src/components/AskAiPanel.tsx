@@ -7,14 +7,22 @@ interface Source {
   score: number;
 }
 
-interface AskAIPanelProps {
-  caseId: string;
+interface MatchingEntity {
+  id: number;
+  name: string;
+  type: string;
 }
 
-function AskAIPanel({ caseId }: AskAIPanelProps) {
+interface AskAIPanelProps {
+  caseId: string;
+  onSelectEntity?: (entityId: string) => void;
+}
+
+function AskAIPanel({ caseId, onSelectEntity }: AskAIPanelProps) {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
+  const [matchingEntities, setMatchingEntities] = useState<MatchingEntity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +33,7 @@ function AskAIPanel({ caseId }: AskAIPanelProps) {
     setError(null);
     setAnswer(null);
     setSources([]);
+    setMatchingEntities([]);
 
     try {
       const res = await axios.post('/api/documents/ask', {
@@ -33,6 +42,7 @@ function AskAIPanel({ caseId }: AskAIPanelProps) {
       });
       setAnswer(res.data.answer);
       setSources(res.data.sources || []);
+      setMatchingEntities(res.data.matchingEntities || []);
     } catch (err: any) {
       if (err.response?.status === 403) {
         setError(err.response?.data?.message || 'Access Denied: You do not have permission to query this case.');
@@ -89,6 +99,28 @@ function AskAIPanel({ caseId }: AskAIPanelProps) {
               AI Answer
             </div>
             <p className="text-sm text-gray-800 whitespace-pre-wrap">{answer}</p>
+
+            {matchingEntities.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-blue-200/60">
+                <div className="text-xs font-semibold text-blue-900 mb-1.5 flex items-center gap-1.5">
+                  <span>Mentioned Graph Entities:</span>
+                  <span className="text-[10px] text-blue-600 font-normal">(click chip to view node in relationship graph)</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {matchingEntities.map((ent) => (
+                    <button
+                      key={ent.id}
+                      onClick={() => onSelectEntity?.(String(ent.id))}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-white text-blue-800 border border-blue-300 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer shadow-sm"
+                      title={`Open and highlight ${ent.name} in relationship graph`}
+                    >
+                      <span>{ent.name}</span>
+                      <span className="text-[10px] opacity-75 font-normal">({ent.type})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {sources.length > 0 && (

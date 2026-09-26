@@ -56,4 +56,20 @@ export class CasesController {
   ) {
     return this.casesService.getCaseById(caseId, req.user.id, req.user.role);
   }
+
+  @Get(':id/graph')
+  async getCaseGraph(
+    @Param('id', ParseIntPipe) caseId: number,
+    @Request() req: any,
+  ) {
+    return this.casesService.getCaseGraph(caseId, req.user.id, req.user.role);
+  }
+
+  @Get(':id/timeline')
+  async getCaseTimeline(
+    @Param('id', ParseIntPipe) caseId: number,
+    @Request() req: any,
+  ) {
+    return this.casesService.getCaseTimeline(caseId, req.user.id, req.user.role);
+  }
 }

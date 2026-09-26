@@ -4,6 +4,8 @@ import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AskAiPanel from '../components/AskAiPanel';
 import DocumentTextPanel from '../components/DocumentTextPanel';
+import CaseGraphView from '../components/CaseGraphView';
+import CaseTimelineView from '../components/CaseTimelineView';
 
 interface Certificate {
   id: number;
@@ -119,6 +121,10 @@ function DocumentsPage() {
   // Document Text Slide-Out Panel State
   const [textPanelDoc, setTextPanelDoc] = useState<{ id: number; originalName: string } | null>(null);
   const [isTextPanelOpen, setIsTextPanelOpen] = useState(false);
+
+  // Case Navigation View Tabs State
+  const [activeTab, setActiveTab] = useState<'documents' | 'graph' | 'timeline'>('documents');
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
 
   const openTextPanel = (doc: Document) => {
     setTextPanelDoc({ id: doc.id, originalName: doc.originalName });
@@ -359,11 +365,11 @@ function DocumentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header Banner & Evidence Type Upload Selector */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white p-6 rounded-xl shadow-sm border border-gray-100 gap-4">
+      {/* Top Header Card: Case details + Classification + Verify File & Upload Document */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white p-6 rounded-xl shadow-sm border border-gray-200 gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Link to="/cases" className="text-xs text-blue-600 hover:underline font-semibold">
+            <Link to="/cases" className="text-xs text-blue-600 hover:underline font-semibold flex items-center gap-1">
               ← Cases
             </Link>
             <span className="text-gray-300">/</span>
@@ -379,8 +385,8 @@ function DocumentsPage() {
           </p>
         </div>
 
-        {/* Upload & Verification Controls */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+        {/* Right side controls: Evidence Classification + Verify File + Upload Document */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-gray-50/80 p-3 rounded-xl border border-gray-200">
           <div className="flex flex-col text-xs space-y-1">
             <span className="font-semibold text-gray-700">Evidence Classification:</span>
             <div className="flex items-center gap-3">
@@ -391,9 +397,11 @@ function DocumentsPage() {
                   value="SECONDARY"
                   checked={selectedEvidenceType === 'SECONDARY'}
                   onChange={() => setSelectedEvidenceType('SECONDARY')}
-                  className="text-amber-600 focus:ring-amber-500"
+                  className="text-blue-600 focus:ring-blue-500"
                 />
-                <span className="font-medium text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded text-[11px]">Secondary (Requires Sec 63(4))</span>
+                <span className="font-medium text-amber-900 bg-amber-100 px-2 py-0.5 rounded text-[11px] border border-amber-200">
+                  Secondary (Requires Sec 63(4))
+                </span>
               </label>
               <label className="flex items-center gap-1 cursor-pointer">
                 <input
@@ -404,202 +412,198 @@ function DocumentsPage() {
                   onChange={() => setSelectedEvidenceType('PRIMARY')}
                   className="text-blue-600 focus:ring-blue-500"
                 />
-                <span className="font-medium text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded text-[11px]">Primary (Original Device)</span>
+                <span className="font-medium text-blue-900 bg-blue-100 px-2 py-0.5 rounded text-[11px] border border-blue-200">
+                  Primary (Original Device)
+                </span>
               </label>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pt-2 sm:pt-0 sm:border-l sm:border-gray-300 sm:pl-3">
+          <div className="flex items-center gap-2 pt-2 sm:pt-0 sm:border-l sm:border-gray-200 sm:pl-3">
+            {/* Verify Blockchain */}
+            <button
+              onClick={handleVerifyBlockchain}
+              disabled={verifyingBlockchain}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-gray-50 font-semibold transition-colors text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {verifyingBlockchain ? 'Verifying...' : 'Verify Blockchain'}
+            </button>
 
-  {/* Blockchain Verification */}
-  <button
-    onClick={handleVerifyBlockchain}
-    disabled={verifyingBlockchain}
-    className="px-3 py-1.5 bg-purple-50 border border-purple-200 text-purple-800 rounded-lg shadow-sm hover:bg-purple-100 font-semibold transition-colors text-xs flex items-center gap-1.5 disabled:opacity-50"
-  >
-    <svg
-      className="w-4 h-4 text-purple-600"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-      />
-    </svg>
+            {/* Verify File */}
+            <input
+              type="file"
+              ref={verifyInputRef}
+              onChange={handleVerify}
+              className="hidden"
+            />
+            <button
+              onClick={() => verifyInputRef.current?.click()}
+              disabled={verifying}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-gray-50 font-semibold transition-colors text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {verifying ? 'Verifying...' : 'Verify File'}
+            </button>
 
-    {verifyingBlockchain
-      ? 'Verifying Chain...'
-      : 'Verify Blockchain'}
-  </button>
-
-  {/* Verify File */}
-  <input
-    type="file"
-    ref={verifyInputRef}
-    onChange={handleVerify}
-    className="hidden"
-  />
-
-  <button
-    onClick={() => verifyInputRef.current?.click()}
-    disabled={verifying}
-    className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-gray-50 font-medium transition-colors text-xs flex items-center gap-1.5"
-  >
-    {verifying ? 'Verifying...' : 'Verify File'}
-  </button>
-
-  {/* Upload Document */}
-  <input
-    type="file"
-    ref={uploadInputRef}
-    onChange={handleUpload}
-    className="hidden"
-  />
-
-  <button
-    onClick={() => uploadInputRef.current?.click()}
-    disabled={uploading}
-    className="px-3.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors"
-  >
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-      />
-    </svg>
-
-    {uploading ? 'Uploading...' : 'Upload Document'}
-  </button>
-
+            {/* Upload Document */}
+            <input
+              type="file"
+              ref={uploadInputRef}
+              onChange={handleUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => uploadInputRef.current?.click()}
+              disabled={uploading}
+              className="px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              {uploading ? 'Uploading...' : 'Upload Document'}
+            </button>
           </div>
         </div>
       </div>
 
-{/* Blockchain Verification Result Banner */}
-{blockchainResult && (
-  <div
-    className={`p-5 rounded-xl border shadow-sm transition-all ${
-      blockchainResult.match
-        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-        : blockchainResult.status === 'no_documents'
-        ? 'bg-gray-100 border-gray-300 text-gray-800'
-        : 'bg-rose-50 border-rose-200 text-rose-900'
-    }`}
-  >
-    <div className="flex items-start justify-between">
-      <div className="flex items-start gap-3">
-
-        <div
-          className={`p-2 rounded-full mt-0.5 ${
-            blockchainResult.match
-              ? 'bg-emerald-100 text-emerald-700'
-              : blockchainResult.status === 'no_documents'
-              ? 'bg-gray-200 text-gray-700'
-              : 'bg-rose-100 text-rose-700'
+      {/* Horizontal Tab Navigation Bar */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 pt-2 flex items-center gap-8 text-sm font-semibold">
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`flex items-center gap-2 pb-3 pt-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'documents'
+              ? 'border-blue-600 text-blue-600 font-bold'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
           }`}
         >
-          {blockchainResult.match ? (
-            <span>✓</span>
-          ) : blockchainResult.status === 'no_documents' ? (
-            <span>ℹ</span>
-          ) : (
-            <span>⚠</span>
-          )}
-        </div>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Documents & AI
+        </button>
 
-        <div>
-          <h3 className="text-lg font-bold">
-            {blockchainResult.match
-              ? '✅ Blockchain Ledger Verified'
-              : blockchainResult.status === 'no_documents'
-              ? 'ℹ️ No Case Documents'
-              : '⚠️ Blockchain Chain Mismatch Detected!'}
-          </h3>
+        <button
+          onClick={() => setActiveTab('graph')}
+          className={`flex items-center gap-2 pb-3 pt-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'graph'
+              ? 'border-blue-600 text-blue-600 font-bold'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18" />
+          </svg>
+          Relationship Graph
+        </button>
 
-          <p className="text-sm mt-0.5 font-medium opacity-90">
-            {blockchainResult.message}
-          </p>
-
-          {blockchainResult.status !== 'no_documents' && (
-            <div className="mt-3 pt-3 border-t border-gray-200/60 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
-
-              <div className="bg-white/80 p-2.5 rounded border border-gray-200">
-                <span className="text-gray-500 font-sans font-semibold block text-[11px] mb-0.5">
-                  Database Latest Chain Hash:
-                </span>
-
-                <span className="text-gray-800 break-all">
-                  {formatHashTruncated(blockchainResult.dbChainHash)}
-                </span>
-
-                <span className="text-[10px] text-gray-400 block break-all font-mono mt-0.5">
-                  {blockchainResult.dbChainHash}
-                </span>
-              </div>
-
-              <div className="bg-white/80 p-2.5 rounded border border-gray-200">
-                <span className="text-gray-500 font-sans font-semibold block text-[11px] mb-0.5">
-                  On-Chain Registered Hash:
-                </span>
-
-                <span className="text-gray-800 break-all">
-                  {formatHashTruncated(blockchainResult.onChainHash)}
-                </span>
-
-                <span className="text-[10px] text-gray-400 block break-all font-mono mt-0.5">
-                  {blockchainResult.onChainHash}
-                </span>
-              </div>
-
-            </div>
-          )}
-        </div>
+        <button
+          onClick={() => setActiveTab('timeline')}
+          className={`flex items-center gap-2 pb-3 pt-2 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'timeline'
+              ? 'border-blue-600 text-blue-600 font-bold'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Event Timeline
+        </button>
       </div>
 
-      <button
-        onClick={() => setBlockchainResult(null)}
-        className="text-gray-400 hover:text-gray-700 p-1"
-      >
-        ✕
-      </button>
-    </div>
-  </div>
-)}
+      {/* Blockchain Verification Result Banner */}
+      {blockchainResult && (
+        <div
+          className={`p-5 rounded-xl border shadow-sm transition-all ${
+            blockchainResult.match
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : blockchainResult.status === 'no_documents'
+              ? 'bg-gray-100 border-gray-300 text-gray-800'
+              : 'bg-rose-50 border-rose-200 text-rose-900'
+          }`}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-3">
+              <div
+                className={`p-2 rounded-full mt-0.5 ${
+                  blockchainResult.match
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : blockchainResult.status === 'no_documents'
+                    ? 'bg-gray-200 text-gray-700'
+                    : 'bg-rose-100 text-rose-700'
+                }`}
+              >
+                {blockchainResult.match ? (
+                  <span>✓</span>
+                ) : blockchainResult.status === 'no_documents' ? (
+                  <span>ℹ</span>
+                ) : (
+                  <span>⚠</span>
+                )}
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">
+                  {blockchainResult.match
+                    ? '✅ Blockchain Ledger Verified'
+                    : blockchainResult.status === 'no_documents'
+                    ? 'ℹ️ No Case Documents'
+                    : '⚠️ Blockchain Chain Mismatch Detected!'}
+                </h3>
+                <p className="text-sm mt-0.5 font-medium opacity-90">
+                  {blockchainResult.message}
+                </p>
+                {blockchainResult.status !== 'no_documents' && (
+                  <div className="mt-3 pt-3 border-t border-gray-200/60 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+                    <div className="bg-white/80 p-2.5 rounded border border-gray-200">
+                      <span className="text-gray-500 font-sans font-semibold block text-[11px] mb-0.5">
+                        Database Latest Chain Hash:
+                      </span>
+                      <span className="text-gray-800 break-all">
+                        {formatHashTruncated(blockchainResult.dbChainHash)}
+                      </span>
+                      <span className="text-[10px] text-gray-400 block break-all font-mono mt-0.5">
+                        {blockchainResult.dbChainHash}
+                      </span>
+                    </div>
+                    <div className="bg-white/80 p-2.5 rounded border border-gray-200">
+                      <span className="text-gray-500 font-sans font-semibold block text-[11px] mb-0.5">
+                        On-Chain Registered Hash:
+                      </span>
+                      <span className="text-gray-800 break-all">
+                        {formatHashTruncated(blockchainResult.onChainHash)}
+                      </span>
+                      <span className="text-[10px] text-gray-400 block break-all font-mono mt-0.5">
+                        {blockchainResult.onChainHash}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setBlockchainResult(null)}
+              className="text-gray-400 hover:text-gray-700 p-1"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
-{/* Blockchain Verification Error */}
-{blockchainError && (
-  <div className="p-5 rounded-xl border border-rose-200 bg-rose-50 text-rose-900 shadow-sm flex items-start justify-between">
-
-    <div>
-      <h3 className="text-lg font-bold">
-        Blockchain Verification Error
-      </h3>
-
-      <p className="text-sm mt-0.5 font-medium">
-        {blockchainError}
-      </p>
-    </div>
-
-    <button
-      onClick={() => setBlockchainError(null)}
-      className="text-gray-400 hover:text-gray-700 p-1"
-    >
-      ✕
-    </button>
-
-  </div>
-)} 
+      {/* Blockchain Verification Error */}
+      {blockchainError && (
+        <div className="p-5 rounded-xl border border-rose-200 bg-rose-50 text-rose-900 shadow-sm flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-bold">Blockchain Verification Error</h3>
+            <p className="text-sm mt-0.5 font-medium">{blockchainError}</p>
+          </div>
+          <button
+            onClick={() => setBlockchainError(null)}
+            className="text-gray-400 hover:text-gray-700 p-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Upload & Verify Response Banners */}
       {actionResult && (
@@ -670,7 +674,7 @@ function DocumentsPage() {
             </button>
           </div>
 
-          {/* Forensic Comparison Panel for Tamper Attempts */}
+          {/* Forensic Comparison Panel */}
           {actionResult.status === 'tampered' && actionResult.forensics && (
             <div className="mt-4 pt-4 border-t border-rose-200 bg-white/80 backdrop-blur p-4 rounded-lg">
               <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800 mb-3 flex items-center gap-1.5">
@@ -698,7 +702,6 @@ function DocumentsPage() {
                 </div>
               </div>
 
-              {/* Hashes for Admin */}
               {isAdmin && (actionResult.storedFileHash || actionResult.recomputedFileHash || actionResult.attemptedFileHash) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
                   <div className="bg-gray-100 p-2 rounded">
@@ -716,36 +719,51 @@ function DocumentsPage() {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
+      {/* Tab Contents */}
+      {activeTab === 'graph' ? (
+        <CaseGraphView caseId={caseId!} highlightEntityId={selectedEntityId} />
+      ) : activeTab === 'timeline' ? (
+        <CaseTimelineView caseId={caseId!} />
+      ) : (
+        <>
+          {/* Search Bar */}
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search documents by filename or OCR extracted text..."
+                className="w-full pl-10 pr-10 py-2.5 bg-gray-50/50 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search documents by filename or OCR extracted text..."
-            className="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </button>
+
+          {/* AI Query Panel */}
+          {caseDetails && (
+            <AskAiPanel
+              caseId={String(caseDetails.id)}
+              onSelectEntity={(entId) => {
+                setSelectedEntityId(entId);
+                setActiveTab('graph');
+              }}
+            />
           )}
-        </div>
-      </div>
-      
-      {/* AI Query Panel */}
-{caseDetails && <AskAiPanel caseId={String(caseDetails.id)} />}
 
       {/* Documents Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -939,6 +957,8 @@ function DocumentsPage() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Certificate Generation Modal */}
       {selectedDocForCert && (

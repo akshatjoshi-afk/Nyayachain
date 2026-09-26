@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -35,6 +35,8 @@ model Case {
 
   assignments CaseAssignment[]
   documents   Document[]
+  entities    Entity[]
+  relationships Relationship[]
 }
 
 model CaseAssignment {
@@ -114,4 +116,32 @@ model AuditLog {
 
   user       User      @relation(fields: [userId], references: [id])
   document   Document? @relation(fields: [documentId], references: [id])
+}
+
+model Entity {
+  id                  Int            @id @default(autoincrement())
+  caseId              Int
+  name                String
+  type                String         // PERSON | ORG | LOCATION | EVIDENCE | EVENT
+  date                DateTime?      // Optional date field for EVENT entity type
+
+  case                Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  sourceRelationships Relationship[] @relation("SourceEntity")
+  targetRelationships Relationship[] @relation("TargetEntity")
+
+  @@unique([caseId, name, type])
+}
+
+model Relationship {
+  id               Int      @id @default(autoincrement())
+  caseId           Int
+  sourceEntityId   Int
+  targetEntityId   Int
+  relationshipType String
+  sourceDocument   String
+
+  case             Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  sourceEntity     Entity   @relation("SourceEntity", fields: [sourceEntityId], references: [id], onDelete: Cascade)
+  targetEntity     Entity   @relation("TargetEntity", fields: [targetEntityId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
 }

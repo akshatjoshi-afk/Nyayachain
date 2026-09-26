@@ -36,7 +36,7 @@ export class DocumentsService {
       const ocrBaseUrl = process.env.OCR_SERVICE_URL || 'http://localhost:8000';
       const response = await axios.post(`${ocrBaseUrl}/extract-text`, formData, {
         headers: formData.getHeaders(),
-        timeout: 180000,
+        timeout: 240000,
       });
 
       return response.data?.text || '';
@@ -190,6 +190,40 @@ export class DocumentsService {
        document.blockchainTxHash = blockchainTxHash;
      }
 
+    // AI Service: Ingest & Graph Extraction (fail gracefully)
+    const textToProcess = extractedText || file.originalname;
+    try {
+      await fetch(`${AI_SERVICE_URL}/ingest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: textToProcess,
+          case_id: String(caseId),
+          doc_name: file.originalname,
+        }),
+      });
+    } catch (e: any) {
+      console.warn('AI Ingest failed, continuing without vector store:', e.message || e);
+    }
+
+    try {
+      const graphRes = await fetch(`${AI_SERVICE_URL}/extract-graph`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: textToProcess,
+          case_id: String(caseId),
+          doc_name: file.originalname,
+        }),
+      });
+      if (graphRes.ok) {
+        const graphData = await graphRes.json();
+        await this.processGraphExtraction(caseId, file.originalname, graphData);
+      }
+    } catch (e: any) {
+      console.warn('Graph extraction failed, continuing:', e.message || e);
+    }
+
     await this.prisma.auditLog.create({
       data: {
         userId,
@@ -337,26 +371,97 @@ export class DocumentsService {
     return result;
   }
   async askQuestion(caseId: number, question: string, userId: number, role: string) {
-  await this.casesService.validateCaseAccess(caseId, userId, role);
+    await this.casesService.validateCaseAccess(caseId, userId, role);
 
-  const res = await fetch(`${AI_SERVICE_URL}/query`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, case_id: String(caseId) }),
-  });
+    const res = await fetch(`${AI_SERVICE_URL}/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, case_id: String(caseId) }),
+    });
 
-  const result = await res.json();
+    const result: any = await res.json();
 
-  await this.prisma.auditLog.create({
-    data: {
-      userId,
-      action: 'AI_QUERY',
-      result: `Asked: "${question}" on Case #${caseId}`,
-    },
-  });
+    // Find entities in this case mentioned in answer or source chunks
+    const entitiesInCase = await this.prisma.entity.findMany({
+      where: { caseId },
+    });
 
-  return result;
-}
+    const combinedText = `${result.answer || ''} ${(result.sources || []).map((s: any) => s.text || '').join(' ')}`.toLowerCase();
+
+    const matchingEntities = entitiesInCase
+      .filter((entity) => entity.name && combinedText.includes(entity.name.toLowerCase()))
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        type: e.type,
+      }));
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'AI_QUERY',
+        result: `Asked: "${question}" on Case #${caseId}`,
+      },
+    });
+
+    return {
+      ...result,
+      matchingEntities,
+    };
+  }
+
+  private async processGraphExtraction(caseId: number, docName: string, graphData: any) {
+    const { entities = [], relationships = [] } = graphData;
+    const entityMap = new Map<string, number>();
+
+    for (const ent of entities) {
+      if (!ent.name || !ent.type) continue;
+      const typeStr = String(ent.type).toUpperCase();
+      let eventDate: Date | null = null;
+      if (typeStr === 'EVENT' && ent.date) {
+        const parsed = new Date(ent.date);
+        if (!isNaN(parsed.getTime())) eventDate = parsed;
+      }
+
+      let dbEntity = await this.prisma.entity.findFirst({
+        where: {
+          caseId,
+          name: ent.name,
+          type: typeStr,
+        },
+      });
+
+      if (!dbEntity) {
+        dbEntity = await this.prisma.entity.create({
+          data: {
+            caseId,
+            name: ent.name,
+            type: typeStr,
+            date: eventDate,
+          },
+        });
+      }
+      entityMap.set(ent.name.toLowerCase(), dbEntity.id);
+    }
+
+    for (const rel of relationships) {
+      if (!rel.source_entity || !rel.target_entity || !rel.relationship_type) continue;
+      const sourceId = entityMap.get(String(rel.source_entity).toLowerCase());
+      const targetId = entityMap.get(String(rel.target_entity).toLowerCase());
+
+      if (sourceId && targetId) {
+        await this.prisma.relationship.create({
+          data: {
+            caseId,
+            sourceEntityId: sourceId,
+            targetEntityId: targetId,
+            relationshipType: String(rel.relationship_type).toUpperCase(),
+            sourceDocument: docName,
+          },
+        });
+      }
+    }
+  }
   async verifyAgainstBlockchain(caseId: number, userId: number, role: string) {
     await this.casesService.validateCaseAccess(caseId, userId, role);
 

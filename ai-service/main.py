@@ -29,3 +29,13 @@ def query(req: QueryRequest):
     chunks = rag_engine.query_documents(req.question, req.case_id)
     answer = llm.call_llm(req.question, chunks)
     return {"answer": answer, "sources": chunks}
+
+
+class ExtractGraphRequest(BaseModel):
+    text: str
+    case_id: str
+    doc_name: str
+
+@app.post("/extract-graph")
+def extract_graph_endpoint(req: ExtractGraphRequest):
+    return llm.extract_graph(req.text)

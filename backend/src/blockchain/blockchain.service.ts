@@ -9,42 +9,82 @@ const CONTRACT_ABI = [
 @Injectable()
 export class BlockchainService {
   private readonly logger = new Logger(BlockchainService.name);
-  private provider: ethers.JsonRpcProvider;
-  private wallet: ethers.Wallet;
-  private contract: ethers.Contract;
+  private provider?: ethers.JsonRpcProvider;
+  private wallet?: ethers.Wallet;
+  private contract?: ethers.Contract;
 
   constructor() {
-    this.logger.debug(`RPC_URL: ${process.env.BLOCKCHAIN_RPC_URL}`);
-    this.logger.debug(`CONTRACT_ADDRESS: ${process.env.BLOCKCHAIN_CONTRACT_ADDRESS}`);
-    this.logger.debug(`PRIVATE_KEY set: ${!!process.env.HARDHAT_PRIVATE_KEY}, length: ${process.env.HARDHAT_PRIVATE_KEY?.length}`);
+    const rpcUrl = process.env.BLOCKCHAIN_RPC_URL;
+    const contractAddress = process.env.BLOCKCHAIN_CONTRACT_ADDRESS;
+    const privateKey = process.env.HARDHAT_PRIVATE_KEY;
 
-    this.provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL, undefined, {
+    this.logger.debug(`RPC_URL: ${rpcUrl}`);
+    this.logger.debug(`CONTRACT_ADDRESS: ${contractAddress}`);
+    this.logger.debug(
+      `PRIVATE_KEY set: ${!!privateKey}, length: ${privateKey?.length}`,
+    );
+
+    // Blockchain is optional. If it is not configured,
+    // the backend continues running without blockchain functionality.
+    if (!rpcUrl || !contractAddress || !privateKey) {
+      this.logger.warn(
+        'Blockchain is not configured; running without blockchain',
+      );
+      return;
+    }
+
+    this.provider = new ethers.JsonRpcProvider(rpcUrl, undefined, {
       staticNetwork: true,
     });
-    this.wallet = new ethers.Wallet(process.env.HARDHAT_PRIVATE_KEY!, this.provider);
+
+    this.wallet = new ethers.Wallet(privateKey, this.provider);
+
     this.contract = new ethers.Contract(
-      process.env.BLOCKCHAIN_CONTRACT_ADDRESS!,
+      contractAddress,
       CONTRACT_ABI,
       this.wallet,
     );
+
+    this.logger.log('Blockchain service initialized successfully');
   }
 
-  async anchorCaseHash(caseId: string, chainHash: string): Promise<string | null> {
+  async anchorCaseHash(
+    caseId: string,
+    chainHash: string,
+  ): Promise<string | null> {
+    if (!this.contract) {
+      this.logger.debug(
+        `Blockchain disabled; skipping anchor for case ${caseId}`,
+      );
+      return null;
+    }
+
     try {
       const tx = await this.contract.anchorHash(caseId, chainHash);
       await tx.wait();
       return tx.hash;
     } catch (err) {
-      this.logger.warn(`Blockchain anchor failed, continuing without it: ${err.message}`);
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `Blockchain anchor failed, continuing without it: ${message}`,
+      );
       return null;
     }
   }
 
   async getOnChainAnchor(caseId: string): Promise<string | null> {
+    if (!this.contract) {
+      this.logger.debug(
+        `Blockchain disabled; skipping on-chain lookup for case ${caseId}`,
+      );
+      return null;
+    }
+
     try {
       return await this.contract.getAnchor(caseId);
     } catch (err) {
-      this.logger.warn(`Blockchain read failed: ${err.message}`);
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Blockchain read failed: ${message}`);
       return null;
     }
   }

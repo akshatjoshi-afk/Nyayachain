@@ -9,7 +9,7 @@ import axios from 'axios';
 import FormData = require('form-data');
 
 const GENESIS_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8001';
+const getAiServiceUrl = () => process.env.AI_SERVICE_URL || 'http://localhost:8001';
 
 export type ComparisonResult = 'NEW' | 'DUPLICATE' | 'TAMPERED' | 'NOT_FOUND';
 
@@ -192,8 +192,9 @@ export class DocumentsService {
 
     // AI Service: Ingest & Graph Extraction (fail gracefully)
     const textToProcess = extractedText || file.originalname;
+    const aiBaseUrl = getAiServiceUrl();
     try {
-      await fetch(`${AI_SERVICE_URL}/ingest`, {
+      await fetch(`${aiBaseUrl}/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -207,7 +208,7 @@ export class DocumentsService {
     }
 
     try {
-      const graphRes = await fetch(`${AI_SERVICE_URL}/extract-graph`, {
+      const graphRes = await fetch(`${aiBaseUrl}/extract-graph`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -373,7 +374,7 @@ export class DocumentsService {
   async askQuestion(caseId: number, question: string, userId: number, role: string) {
     await this.casesService.validateCaseAccess(caseId, userId, role);
 
-    const res = await fetch(`${AI_SERVICE_URL}/query`, {
+    const res = await fetch(`${getAiServiceUrl()}/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question, case_id: String(caseId) }),

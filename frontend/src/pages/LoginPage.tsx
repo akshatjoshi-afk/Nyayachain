@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const API_BASE_URL = 'https://nyayachain-1.onrender.com';
+
 
 function LoginPage() {
   const [username, setUsername] = useState('');
@@ -53,7 +53,7 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await axios.post('/api/auth/login', {
+      const res = await axios.post('https://nyayachain-1.onrender.com/api/auth/login', {
         username: cleanUsername,
         password,
       });

@@ -196,7 +196,7 @@ Sample cases: `FIR-2026-045` (investigator1 assigned), `FIR-2026-046` (investiga
 
 ## Planned / Not Yet Implemented
 
-The following are part of the target production architecture (see project PPT) but are **not built** in this prototype:
+The following are part of the target production architecture are **not built** in this prototype:
 - Public blockchain anchoring (Polygon mainnet/testnet) — currently simulated via local Hardhat network only
 - Neo4j graph database (current Relationship Graph uses relational tables, not a dedicated graph DB)
 - MinIO/S3 object storage (files currently stored on local disk)

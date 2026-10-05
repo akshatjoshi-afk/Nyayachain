@@ -176,8 +176,8 @@ Open `http://localhost:5173` in your browser.
 
 | Username | Password | Role |
 |---|---|---|
-| `investigator1` | `password123` | INVESTIGATOR |
-| `admin` | `adminpass` | ADMIN |
+| `investigator1` | `investigator@20` | INVESTIGATOR |
+| `admin` | `admin@20` | ADMIN |
 
 Sample cases: `FIR-2026-045` (investigator1 assigned), `FIR-2026-046` (investigator1 NOT assigned — used to demonstrate access control).
 
